@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Firma Electronica Avanzada</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<style>
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background-color: #f4f4f9;
+        margin: 0;
+        padding: 0;
+    }
+    header, footer {
+        background-color: #007bff;
+        color: white;
+        text-align: center;
+        padding: 10px 0;
+    }
+    header h1, footer p {
+        margin: 0;
+    }
+    .container {
+        max-width: 1200px;
+        margin: 20px auto;
+        padding: 20px;
+        background-color: #fff;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        border-radius: 8px;
+    }
+    h2 {
+        color: #333;
+    }
+    #login-container, #signup-container, #pdf-container {
+        width: 100%;
+        max-width: 400px;
+        margin: 0 auto;
+        text-align: center;
+    }
+    input, #file-input, button {
+        margin-top: 20px;
+        width: calc(100% - 40px);
+        padding: 10px;
+        box-sizing: border-box;
+        margin-left: auto;
+        margin-right: auto;
+        display: block;
+        border-radius: 4px;
+        border: 1px solid #ccc;
+    }
+    button {
+        background-color: #007bff;
+        color: #fff;
+        border: none;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+    button:hover {
+        background-color: #0056b3;
+    }
+    a {
+        color: #007bff;
+        text-decoration: none;
+    }
+    a:hover {
+        text-decoration: underline;
+    }
+    canvas {
+        border: 1px solid #000;
+        margin-top: 20px;
+    }
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgba(0, 0, 0, 0.5);
+    }
+    .modal-content {
+        background-color: #fff;
+        margin: 15% auto;
+        padding: 20px;
+        border: 1px solid #888;
+        width: 80%;
+        max-width: 500px;
+        border-radius: 8px;
+    }
+    .close {
+        color: #aaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+    }
+    .close:hover,
+    .close:focus {
+        color: black;
+        text-decoration: none;
+        cursor: pointer;
+    }
+    @media (max-width: 768px) {
+        #pdf-viewer {
+            height: 400px;
+        }
+    }
+</style>
+</head>
+<body>
+
+<header>
+    <h1><i class="fas fa-file-pdf"></i> Firma Electronica Avanzada</h1>
+</header>
+
+<div class="container">
+    <div id="login-container">
+        <h2>Inicio de sesión</h2>
+        <input type="text" id="login-username" placeholder="Usuario">
+        <input type="password" id="login-password" placeholder="Contraseña">
+        <button onclick="login()"><i class="fas fa-sign-in-alt"></i> Ingresar</button>
+        <p>¿No tienes una cuenta? <a href="#" onclick="showSignup()">Regístrate aquí</a></p>
+    </div>
+
+    <!-- Agregar campo de correo electrónico en el formulario de registro -->
+<div id="signup-container" style="display:none;">
+    <h2>Crea cuenta</h2>
+    <input type="text" id="signup-username" placeholder="Nombre de usuario">
+    <input type="text" id="signup-firstname" placeholder="Nombres">
+    <input type="text" id="signup-lastname" placeholder="Apellidos">
+    <input type="email" id="signup-email" placeholder="Correo electrónico">
+    <!-- Nuevo campo para confirmar correo electrónico -->
+    <input type="password" id="signup-password" placeholder="Contraseña">
+    <button onclick="signup()">Registrarse</button>
+    <p>¿Ya tienes una cuenta? <a href="#" onclick="showLogin()">Inicia sesión</a></p>
+</div>
+
+    <div id="pdf-container" style="display: none;">
+        <h2>Cargar PDF</h2>
+        <input type="file" id="file-input" accept=".pdf" onchange="loadPdf(event)">
+        <embed id="pdf-viewer" src="" type="application/pdf" width="100%" height="600px" style="margin-top: 20px;">
+        <canvas id="signatureCanvas" width="400" height="200"></canvas>
+        <button onclick="clearSignature()"><i class="fas fa-eraser"></i> Limpiar firma</button>
+        <button onclick="confirmSavePdfWithSignature()"><i class="fas fa-save"></i> Guardar PDF con Firma</button>
+        <button onclick="logout()"><i class="fas fa-sign-out-alt"></i> Cerrar Sesión</button>
+    </div>
+</div>
+
+<footer>
+    <p>&copy; Firma Elctronica Avanzada</p>
+</footer>
+
+<div id="confirmationModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal()">&times;</span>
+        <p>¿Estás seguro de que deseas guardar el PDF con la firma?</p>
+        <button onclick="savePdfWithSignature()">Confirmar</button>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/signature_pad/1.5.3/signature_pad.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script>
+    var signaturePad;
+
+    // Funcion de inicio de sesion
+    function login() {
+        //Obtiene el valor del campo de entrada con los ID's y los almacena en las variables correspondientes
+        var username = document.getElementById("login-username").value;
+        var password = document.getElementById("login-password").value;
+        
+        /* Recupera los usuarios almacenados en localStorage bajo la clave 'users' y los convierte de una 
+        cadena JSON a un arreglo de objetos JavaScript. Si no hay usuarios almacenados, storedUsers será null. */
+        var storedUsers = JSON.parse(localStorage.getItem('users'));
+        /*Verifica si hay usuarios almacenados (storedUsers no es null). Si no hay usuarios, 
+        pasa al bloque else al final */
+        if (storedUsers) {
+            /* Busca en el arreglo storedUsers un objeto user cuya propiedad username coincida con el valor 
+            de username ingresado y cuya propiedad password coincida con el valor de password ingresado. */
+            /* Si encuentra una coincidencia, user contendrá el objeto del usuario correspondiente. 
+            Si no, user será undefined. */
+            var user = storedUsers.find(u => u.username === username && u.password === password);
+            /* Verifica si se encontró un usuario que coincida con el username y password ingresados 
+            (user no es undefined). */
+            if (user) {
+                // Oculta el contenedor del formulario de inicio de sesión (elemento con ID login-container).
+                document.getElementById("login-container").style.display = "none";
+                // Muestra el contenedor del PDF (elemento con ID pdf-container).
+                document.getElementById("pdf-container").style.display = "block";
+                /* Llama a la función initSignaturePad(), que presumiblemente inicializa un componente 
+                de firma digital en el contenedor del PDF. Esta función no está definida en el fragmento 
+                proporcionado. */
+                initSignaturePad();
+                /* Si no se encontró un usuario que coincida con el username y password ingresados 
+                (user es undefined), ejecuta el bloque de código siguiente */
+            } else {
+                // Muestra una alerta informando que el nombre de usuario o la contraseña son incorrectos.
+                alert("Usuario o contraseña incorrectos");
+            }
+            /* Si no hay usuarios almacenados en localStorage (storedUsers es null), ejecuta el bloque de 
+            código siguiente. */
+        } else {
+            // Muestra una alerta informando que no hay cuentas registradas en el sistema.
+            alert("No hay cuentas registradas.");
+        }
+    }
+
+    //Funcion para registrarse
+    function signup() { 
+        //Obtiene el valor de los campo de entrada con los ID's y los almacena en sus respectivas variables
+        var username = document.getElementById("signup-username").value;
+        var firstName = document.getElementById("signup-firstname").value;
+        var lastName = document.getElementById("signup-lastname").value;
+        var email = document.getElementById("signup-email").value;
+        var password = document.getElementById("signup-password").value;
+
+        //Crea al objeto 'user' con sus propiedades, asignandoles los valores obtenidos anteriormente
+        var user = {
+            username: username,
+            firstName: firstName,
+            lastName: lastName,
+            email: email,
+            password: password
+        };
+
+        /* Intenta obtener los usuarios almacenados previamente en 'localStorage bajo la clave 'users' y los
+        convierte de una cadena de caracters JASON a un arreglo de objetos en Javascript */
+        /* Si no hay usuarios almacenados (localStorage.getItem('users') es 'null'), inicializa 'storedUsers' 
+        como un arreglo vacío ([]) */
+        var storedUsers = JSON.parse(localStorage.getItem('users')) || [];
+        //Agrega el nuevo objeto user al arreglo storedUsers.
+        storedUsers.push(user);
+        /* Convierte el arreglo storedUsers, ahora con el nuevo usuario añadido, a una cadena JSON 
+        y lo guarda en localStorage bajo la clave 'users'. */
+        localStorage.setItem('users', JSON.stringify(storedUsers));
+
+        /* Muestra un mensaje de alerta informando al usuario que su cuenta ha sido creada con éxito 
+        y que debe iniciar sesión */
+        alert("¡Cuenta creada con éxito! Por favor inicia sesión.");
+
+        /* Llama a una función showLogin() (no definida en el fragmento proporcionado) que presumiblemente 
+        mostrará el formulario de inicio de sesión al usuario. */
+        showLogin();
+    }
+
+    function logout() {
+        document.getElementById("login-username").value = "";
+        document.getElementById("login-password").value = "";
+        document.getElementById("signup-username").value = "";
+        document.getElementById("signup-firstname").value = "";
+        document.getElementById("signup-lastname").value = "";
+        document.getElementById("signup-email").value = "";
+        document.getElementById("signup-password").value = "";
+
+        document.getElementById("login-container").style.display = "block";
+        document.getElementById("signup-container").style.display = "none";
+        document.getElementById("pdf-container").style.display = "none";
+        clearSignature();
+    }
+
+    function loadPdf(event) {
+        const file = event.target.files[0];
+        const reader = new FileReader();
+
+        reader.onload = function(event) {
+            const pdfUrl = event.target.result;
+            document.getElementById("pdf-viewer").src = pdfUrl;
+        };
+
+        reader.readAsDataURL(file);
+    }
+
+    function showSignup() {
+        document.getElementById("login-container").style.display = "none";
+        document.getElementById("signup-container").style.display = "block";
+    }
+
+    function showLogin() {
+        document.getElementById("signup-container").style.display = "none";
+        document.getElementById("login-container").style.display = "block";
+    }
+
+    function initSignaturePad() {
+        var canvas = document.getElementById('signatureCanvas');
+        signaturePad = new SignaturePad(canvas);
+    }
+
+    function clearSignature() {
+        signaturePad.clear();
+    }
+
+    function confirmSavePdfWithSignature() {
+        document.getElementById("confirmationModal").style.display = "block";
+    }
+
+    function closeModal() {
+        document.getElementById("confirmationModal").style.display = "none";
+    }
+
+    async function savePdfWithSignature() {
+        closeModal();
+        const { PDFDocument } = PDFLib;
+        const existingPdfBytes = await fetch(document.getElementById('pdf-viewer').src).then(res => res.arrayBuffer());
+        const pdfDoc = await PDFDocument.load(existingPdfBytes);
+        const pages = pdfDoc.getPages();
+        const lastPage = pages[pages.length - 1];
+        
+        const signatureImage = signaturePad.toDataURL();
+        const signatureImageBytes = await fetch(signatureImage).then(res => res.arrayBuffer());
+        const signatureImageEmbed = await pdfDoc.embedPng(signatureImageBytes);
+        const signatureDims = signatureImageEmbed.scale(0.5);
+        
+        lastPage.drawImage(signatureImageEmbed, {
+            x: lastPage.getWidth() - signatureDims.width - 50,
+            y: 50,
+            width: signatureDims.width,
+            height: signatureDims.height,
+        });
+        
+        const pdfBytes = await pdfDoc.save();
+        
+        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'documento_firmado.pdf';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    }
+</script>
+
+</body>
+</html>
